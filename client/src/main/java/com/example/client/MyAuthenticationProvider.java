@@ -53,7 +53,7 @@ public class MyAuthenticationProvider implements AuthenticationProvider {
         // リクエストを作成
         RequestEntity<MultiValueMap<String, String>> requestEntity =
                 new RequestEntity<>(formParams, httpHeaders, HttpMethod.POST,
-                        URI.create("http://localhost:9000/auth"));
+                        URI.create("http://localhost:9999/auth"));
 
         try {
             // POSTリクエスト送信（ログイン実行）
