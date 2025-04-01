@@ -16,8 +16,8 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 
@@ -29,10 +29,10 @@ public class MyAuthenticationProvider implements AuthenticationProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(MyAuthenticationProvider.class);
 
-    private final RestTemplate restTemplate;
+    private final RestClient restClient;
 
-    public MyAuthenticationProvider(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public MyAuthenticationProvider(RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder.build();
     }
 
     @Override
@@ -41,26 +41,18 @@ public class MyAuthenticationProvider implements AuthenticationProvider {
         Object password = authentication.getCredentials();
         logger.info("ユーザー名 = {}、パスワード = {}", username, password);
 
-        // POSTするリクエストパラメーターを作成
-        MultiValueMap<String, String> formParams = new LinkedMultiValueMap<>();
-        formParams.add("username", username.toString());
-        formParams.add("password", password.toString());
-
-        // リクエストヘッダーを作成
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE);
-
-        // リクエストを作成
-        RequestEntity<MultiValueMap<String, String>> requestEntity =
-                new RequestEntity<>(formParams, httpHeaders, HttpMethod.POST,
-                        URI.create("http://localhost:9999/auth"));
-
         try {
             // POSTリクエスト送信（ログイン実行）
-            ResponseEntity<String> responseEntity = restTemplate.exchange(requestEntity, String.class);
+            ResponseEntity<String> responseEntity = restClient.post()
+                .uri("http://localhost:9999/auth")
+                .body("username=" + username + "&password=" + password)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .retrieve().toEntity(String.class);
+
             logger.info("ログイン成功！（ステータス＝" + responseEntity.getStatusCode() + "）");
             // 新規にAuthenticationオブジェクトを作成
-            UsernamePasswordAuthenticationToken user = new UsernamePasswordAuthenticationToken(username, password, AuthorityUtils.createAuthorityList("ROLE_USER"));
+            UsernamePasswordAuthenticationToken user = new UsernamePasswordAuthenticationToken(
+                username, password, AuthorityUtils.createAuthorityList("ROLE_USER"));
             return user;
         } catch (RestClientException e) {
             logger.error("ログイン失敗・・・");
@@ -70,6 +62,7 @@ public class MyAuthenticationProvider implements AuthenticationProvider {
 
     @Override
     public boolean supports(Class<?> aClass) {
+        // フォーム認証でこのAuthenticationProviderが使われるようにする
         return aClass.isAssignableFrom(UsernamePasswordAuthenticationToken.class);
     }
 }
